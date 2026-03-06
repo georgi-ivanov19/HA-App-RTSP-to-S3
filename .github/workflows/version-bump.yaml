@@ -1,0 +1,53 @@
+name: Version bump
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Calculate version and generate changelog
+        id: changelog
+        uses: TriPSs/conventional-changelog-action@v5
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          skip-version-file: true
+          skip-commit: true
+          skip-tag: true
+          output-file: CHANGELOG.md
+
+      - name: Update config.yaml
+        if: steps.changelog.outputs.skipped == 'false'
+        env:
+          NEW_VERSION: ${{ steps.changelog.outputs.version }}
+        run: |
+          sed -i "s/^version: .*/version: \"${NEW_VERSION}\"/" rtsp_to_s3/config.yaml
+
+      - name: Commit, tag, and push
+        if: steps.changelog.outputs.skipped == 'false'
+        env:
+          NEW_VERSION: ${{ steps.changelog.outputs.version }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add rtsp_to_s3/config.yaml CHANGELOG.md
+          git commit -m "chore: bump version to ${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+          git push
+          git push --tags
+
+      - name: Create GitHub release
+        if: steps.changelog.outputs.skipped == 'false'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ steps.changelog.outputs.version }}
+          body: ${{ steps.changelog.outputs.clean_changelog }}
