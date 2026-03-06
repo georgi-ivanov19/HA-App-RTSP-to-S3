@@ -8,7 +8,6 @@ A Home Assistant add-on that continuously captures an RTSP camera stream, splits
 ## Planned improvements
 
 - **Multiple camera support** - currently the add-on supports a single camera per instance. A future version will accept a list of cameras in the configuration, each with its own RTSP URL and S3 prefix, with shared AWS credentials.
-- **CloudFormation template** - the AWS setup (S3 bucket, IoT Thing, Role Alias, IAM role and policy) requires several manual steps. A CloudFormation template will be provided to provision all required resources in one go.
 - **Smarter upload trigger** - currently segments are only uploaded once they are 1 minute old, which adds unnecessary delay. A better approach is to check whether ffmpeg still has the file open (via `fuser`) and upload immediately once it moves on to the next segment.
 
 ## How it works
@@ -32,6 +31,8 @@ A Home Assistant add-on that continuously captures an RTSP camera stream, splits
 - An IoT **Role Alias** pointing to an IAM role with `s3:PutObject` permission on the bucket
 - The device certificate, private key, and Amazon Root CA downloaded from IoT Core
 
+All of these (except the certificate) can be provisioned in one go using the [CloudFormation template](#aws-setup-with-cloudformation) included in this repository.
+
 ### Certificates on the Home Assistant host
 
 Place the three certificate files under a subdirectory of `/ssl/` (the default is `/ssl/camera/`):
@@ -44,6 +45,104 @@ Place the three certificate files under a subdirectory of `/ssl/` (the default i
 ```
 
 The add-on mounts `/ssl` read-only, so the files just need to exist on the host before the add-on starts.
+
+## AWS setup with CloudFormation
+
+The included CloudFormation template (`cloudformation.yaml`) creates all the required AWS resources except the IoT device certificate, which must be created separately so that the private key can be downloaded.
+
+### 1. Deploy the stack
+
+```bash
+aws cloudformation deploy \
+  --template-file cloudformation.yaml \
+  --stack-name rtsp-to-s3 \
+  --parameter-overrides \
+    BucketName=my-camera-recordings \
+    ThingName=my-device \
+    EnableLifecycleExpiration=true \
+    LifecycleExpirationDays=30 \
+    S3Prefix=camera \
+  --capabilities CAPABILITY_NAMED_IAM \
+  --region eu-west-2
+```
+
+| Parameter | Required | Default | Description |
+| --------- | -------- | ------- | ----------- |
+| `BucketName` | yes | — | Name of the S3 bucket to create |
+| `ThingName` | yes | — | Name for the IoT Thing |
+| `EnableLifecycleExpiration` | yes | — | `true` or `false` — enable automatic object expiration |
+| `LifecycleExpirationDays` | no | `30` | Days before objects expire (ignored when expiration is disabled) |
+| `S3Prefix` | no | `camera` | Key prefix for the lifecycle rule filter (should match the add-on `s3_prefix` option) |
+
+The stack creates:
+
+- **S3 bucket** with public access blocked and an optional lifecycle expiration rule
+- **IoT Thing**
+- **IAM role** trusted by `credentials.iot.amazonaws.com` with an inline policy granting `s3:PutObject` on the bucket
+- **IoT Role Alias** pointing to the IAM role (1-hour credential duration)
+- **IoT Policy** allowing `iot:AssumeRoleWithCertificate` on the role alias
+
+> [!NOTE]
+> The S3 bucket has a `Retain` deletion policy — deleting the stack will **not** delete the bucket or its contents.
+
+### 2. View stack outputs
+
+After the deploy completes, retrieve the output values you will need for the remaining steps and for the add-on configuration:
+
+```bash
+aws cloudformation describe-stacks \
+  --stack-name rtsp-to-s3 \
+  --query 'Stacks[0].Outputs' \
+  --region eu-west-2
+```
+
+### 3. Create the device certificate
+
+```bash
+aws iot create-keys-and-certificate \
+  --set-as-active \
+  --certificate-pem-outfile certificate.pem \
+  --private-key-outfile private.key \
+  --region eu-west-2
+```
+
+Note the `certificateArn` from the output — you need it in the next step.
+
+Download the Amazon Root CA:
+
+```bash
+curl -o root-ca.pem https://www.amazontrust.com/repository/AmazonRootCA1.pem
+```
+
+### 4. Attach the certificate to the thing and policy
+
+Replace `<certificate-arn>` with the ARN from step 3, and `<thing-name>` / `<policy-name>` with the values from the stack outputs:
+
+```bash
+aws iot attach-thing-principal \
+  --thing-name <thing-name> \
+  --principal <certificate-arn> \
+  --region eu-west-2
+
+aws iot attach-policy \
+  --policy-name <policy-name> \
+  --target <certificate-arn> \
+  --region eu-west-2
+```
+
+### 5. Get the IoT credential endpoint
+
+```bash
+aws iot describe-endpoint \
+  --endpoint-type iot:CredentialProvider \
+  --region eu-west-2
+```
+
+Use the `endpointAddress` value for the add-on's `iot_credential_endpoint` option.
+
+### 6. Copy certificates to the Home Assistant host
+
+Copy `certificate.pem`, `private.key`, and `root-ca.pem` to `/ssl/camera/` on your Home Assistant host (or whichever path you configure as `cert_dir` in the add-on).
 
 ## Installation
 
@@ -81,9 +180,9 @@ For example:
 camera/2026/03/06/14/20260306_143000.mp4
 ```
 
-## Suggested: S3 lifecycle policy
+## S3 lifecycle policy
 
-Without a lifecycle policy, recordings accumulate indefinitely. It is strongly recommended to add a rule in the AWS console (**S3 → your bucket → Management → Lifecycle rules**) to expire objects automatically. Example policy to delete anything older than 30 days:
+Without a lifecycle policy, recordings accumulate indefinitely. If you deployed with `EnableLifecycleExpiration=true`, the CloudFormation template has already configured this for you. Otherwise you can add a rule manually in the AWS console (**S3 → your bucket → Management → Lifecycle rules**) or via the CLI:
 
 ```json
 {
@@ -98,7 +197,7 @@ Without a lifecycle policy, recordings accumulate indefinitely. It is strongly r
 }
 ```
 
-Adjust `Prefix` to match your `s3_prefix` setting and `Days` to your desired retention window. You can also add a separate `NoncurrentVersionExpiration` rule if versioning is enabled on the bucket.
+Adjust `Prefix` to match your `s3_prefix` setting and `Days` to your desired retention window.
 
 ## Suggested: Controlling recording via Home Assistant
 

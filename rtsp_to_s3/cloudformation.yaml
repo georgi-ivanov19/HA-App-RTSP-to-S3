@@ -1,0 +1,138 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Provisions the AWS resources required by the RTSP to S3 Home Assistant
+  add-on: S3 bucket, IoT Thing, IAM role with S3 write permission, IoT role
+  alias, and IoT policy. The IoT device certificate must be created separately
+  after the stack is deployed.
+
+Parameters:
+  BucketName:
+    Type: String
+    Description: Name of the S3 bucket to store camera recordings.
+    AllowedPattern: "^[a-z0-9][a-z0-9.\\-]{1,61}[a-z0-9]$"
+    ConstraintDescription: >-
+      Must be a valid S3 bucket name (3-63 lowercase characters: letters,
+      numbers, hyphens, or periods).
+
+  ThingName:
+    Type: String
+    Description: Name for the AWS IoT Thing representing the device.
+    AllowedPattern: "^[a-zA-Z0-9_\\-]+$"
+    ConstraintDescription: >-
+      Must contain only alphanumeric characters, hyphens, or underscores.
+
+  S3Prefix:
+    Type: String
+    Default: camera
+    Description: >-
+      S3 key prefix used by the add-on and applied as the lifecycle rule
+      filter so that only recordings are affected.
+
+  EnableLifecycleExpiration:
+    Type: String
+    AllowedValues:
+      - "true"
+      - "false"
+    Description: >-
+      Enable automatic expiration of S3 objects under the configured prefix.
+
+  LifecycleExpirationDays:
+    Type: Number
+    Default: 30
+    MinValue: 1
+    MaxValue: 3650
+    Description: >-
+      Number of days after which objects are expired. Ignored when
+      EnableLifecycleExpiration is false.
+
+Conditions:
+  LifecycleEnabled: !Equals [!Ref EnableLifecycleExpiration, "true"]
+
+Resources:
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Ref BucketName
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration: !If
+        - LifecycleEnabled
+        - Rules:
+            - Id: expire-camera-recordings
+              Status: Enabled
+              Prefix: !Sub "${S3Prefix}/"
+              ExpirationInDays: !Ref LifecycleExpirationDays
+        - !Ref AWS::NoValue
+
+  IoTThing:
+    Type: AWS::IoT::Thing
+    Properties:
+      ThingName: !Ref ThingName
+
+  IoTCredentialRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "${ThingName}-role"
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: credentials.iot.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: !Sub "${ThingName}-s3-put"
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action: s3:PutObject
+                Resource: !Sub "arn:aws:s3:::${BucketName}/*"
+
+  IoTRoleAlias:
+    Type: AWS::IoT::RoleAlias
+    Properties:
+      RoleAlias: !Sub "${ThingName}-role-alias"
+      RoleArn: !GetAtt IoTCredentialRole.Arn
+      CredentialDurationSeconds: 3600
+
+  IoTPolicy:
+    Type: AWS::IoT::Policy
+    Properties:
+      PolicyName: !Sub "${ThingName}-policy"
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action: iot:AssumeRoleWithCertificate
+            Resource: !GetAtt IoTRoleAlias.RoleAliasArn
+
+Outputs:
+  BucketName:
+    Description: Name of the S3 bucket for camera recordings.
+    Value: !Ref S3Bucket
+
+  ThingName:
+    Description: Name of the IoT Thing.
+    Value: !Ref IoTThing
+
+  RoleAliasName:
+    Description: >-
+      Name of the IoT role alias. Use this value for the add-on
+      iot_role_alias option.
+    Value: !Ref IoTRoleAlias
+
+  IoTPolicyName:
+    Description: >-
+      Name of the IoT policy. Attach this to the device certificate after
+      creating it.
+    Value: !Ref IoTPolicy
+
+  RoleArn:
+    Description: ARN of the IAM role assumed via the IoT credential provider.
+    Value: !GetAtt IoTCredentialRole.Arn
