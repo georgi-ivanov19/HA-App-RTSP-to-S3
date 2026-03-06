@@ -2,6 +2,13 @@ name: Version bump
 
 on:
   workflow_dispatch:
+    inputs:
+      addon:
+        description: "Add-on to bump"
+        required: true
+        type: choice
+        options:
+          - rtsp_to_s3
 
 permissions:
   contents: write
@@ -9,7 +16,8 @@ permissions:
 jobs:
   bump:
     runs-on: ubuntu-latest
-    if: "!startsWith(github.event.head_commit.message, 'chore: bump version')"
+    env:
+      ADDON: ${{ github.event.inputs.addon }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -20,17 +28,19 @@ jobs:
         uses: TriPSs/conventional-changelog-action@v5
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          tag-prefix: ${{ env.ADDON }}/v
+          git-path: ${{ env.ADDON }}/
+          output-file: ${{ env.ADDON }}/CHANGELOG.md
           skip-version-file: true
           skip-commit: true
           skip-tag: true
-          output-file: CHANGELOG.md
 
       - name: Update config.yaml
         if: steps.changelog.outputs.skipped == 'false'
         env:
           NEW_VERSION: ${{ steps.changelog.outputs.version }}
         run: |
-          sed -i "s/^version: .*/version: \"${NEW_VERSION}\"/" rtsp_to_s3/config.yaml
+          sed -i "s/^version: .*/version: \"${NEW_VERSION}\"/" "${ADDON}/config.yaml"
 
       - name: Commit, tag, and push
         if: steps.changelog.outputs.skipped == 'false'
@@ -39,9 +49,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add rtsp_to_s3/config.yaml CHANGELOG.md
-          git commit -m "chore: bump version to ${NEW_VERSION}"
-          git tag "v${NEW_VERSION}"
+          git add "${ADDON}/config.yaml" "${ADDON}/CHANGELOG.md"
+          git commit -m "chore(${ADDON}): bump version to ${NEW_VERSION}"
+          git tag "${ADDON}/v${NEW_VERSION}"
           git push
           git push --tags
 
@@ -49,5 +59,5 @@ jobs:
         if: steps.changelog.outputs.skipped == 'false'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v${{ steps.changelog.outputs.version }}
+          tag_name: ${{ env.ADDON }}/v${{ steps.changelog.outputs.version }}
           body: ${{ steps.changelog.outputs.clean_changelog }}
