@@ -1,0 +1,10 @@
+# Secrets and local config overrides
+*.pem
+*.key
+*.crt
+*.p12
+
+# Editor and OS
+.DS_Store
+.vscode/
+*.swp
