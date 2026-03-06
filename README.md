@@ -159,7 +159,8 @@ automation:
           addon: rtsp_to_s3
 ```
 
-> **Tip:** You can combine both approaches - use presence detection as the primary trigger and the manual toggle as an override for times when you want to record even while home (e.g. when you go out but leave a family member behind).
+> [!TIP]
+> You can combine both approaches - use presence detection as the primary trigger and the manual toggle as an override for times when you want to record even while home (e.g. when you go out but leave a family member behind).
 
 ## Supported architectures
 
