@@ -2,7 +2,8 @@
 
 A Home Assistant add-on that continuously captures an RTSP camera stream, splits it into fixed-duration MP4 segments, and uploads them to an Amazon S3 bucket using short-lived credentials obtained via AWS IoT Core credential provider.
 
->[!NOTE] **Tested with:** Tapo C230. Other cameras exposing a standard RTSP stream should work but have not been verified.
+> [!NOTE]
+> **Tested with:** Tapo C230. Other cameras exposing a standard RTSP stream should work but have not been verified.
 
 ## Planned improvements
 
@@ -140,7 +141,7 @@ automation:
   - alias: "Start recording when everyone leaves"
     trigger:
       - platform: state
-        entity_id: group.all_persons   # or a specific person entity
+        entity_id: group.all_persons # or a specific person entity
         to: "not_home"
     action:
       - service: hassio.addon_start
