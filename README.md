@@ -1,4 +1,4 @@
-# RTSP to S3 — Home Assistant Add-on
+# RTSP to S3 - Home Assistant Add-on
 
 A Home Assistant add-on that continuously captures an RTSP camera stream, splits it into fixed-duration MP4 segments, and uploads them to an Amazon S3 bucket using short-lived credentials obtained via AWS IoT Core credential provider.
 
@@ -7,7 +7,7 @@ A Home Assistant add-on that continuously captures an RTSP camera stream, splits
 
 ## Planned improvements
 
-- **Multiple camera support** — currently the add-on supports a single camera per instance. A future version will accept a list of cameras in the configuration, each with its own RTSP URL and S3 prefix, with shared AWS credentials.
+- **Multiple camera support** - currently the add-on supports a single camera per instance. A future version will accept a list of cameras in the configuration, each with its own RTSP URL and S3 prefix, with shared AWS credentials.
 
 ## How it works
 
@@ -54,15 +54,15 @@ The add-on mounts `/ssl` read-only, so the files just need to exist on the host 
 
 | Option                    | Type   | Default       | Description                                                                                        |
 | ------------------------- | ------ | ------------- | -------------------------------------------------------------------------------------------------- |
-| `rtsp_url`                | string | —             | Full RTSP URL including credentials, e.g. `rtsp://user:pass@192.168.1.x:554/stream2`               |
-| `s3_bucket`               | string | —             | Name of the S3 bucket to upload segments to                                                        |
+| `rtsp_url`                | string | -             | Full RTSP URL including credentials, e.g. `rtsp://user:pass@192.168.1.x:554/stream2`               |
+| `s3_bucket`               | string | -             | Name of the S3 bucket to upload segments to                                                        |
 | `s3_prefix`               | string | `camera`      | Key prefix (folder) inside the bucket                                                              |
 | `s3_region`               | string | `eu-west-2`   | AWS region of the S3 bucket                                                                        |
 | `segment_duration`        | int    | `60`          | Length of each recorded segment in seconds                                                         |
 | `cert_dir`                | string | `/ssl/camera` | Directory containing `certificate.pem`, `private.key`, and `root-ca.pem`                           |
-| `iot_credential_endpoint` | string | —             | IoT Core credential provider hostname, e.g. `xxxxxxxxxxxx.credentials.iot.eu-west-2.amazonaws.com` |
-| `iot_role_alias`          | string | —             | Name of the IoT Role Alias configured in AWS                                                       |
-| `iot_thing_name`          | string | —             | Name of the IoT Thing registered in AWS                                                            |
+| `iot_credential_endpoint` | string | -             | IoT Core credential provider hostname, e.g. `xxxxxxxxxxxx.credentials.iot.eu-west-2.amazonaws.com` |
+| `iot_role_alias`          | string | -             | Name of the IoT Role Alias configured in AWS                                                       |
+| `iot_thing_name`          | string | -             | Name of the IoT Thing registered in AWS                                                            |
 | `restart_delay`           | int    | `10`          | Seconds to wait before restarting `ffmpeg` after an unexpected exit                                |
 
 ## S3 key structure
@@ -100,9 +100,9 @@ Adjust `Prefix` to match your `s3_prefix` setting and `Days` to your desired ret
 
 ## Suggested: Controlling recording via Home Assistant
 
-Rather than leaving the add-on running at all times, you can start and stop it automatically. Two common approaches are shown below — use either one or combine them.
+Rather than leaving the add-on running at all times, you can start and stop it automatically. Two common approaches are shown below - use either one or combine them.
 
-### Option A — Manual toggle (input boolean)
+### Option A - Manual toggle (input boolean)
 
 Create a helper in **Settings → Devices & Services → Helpers → Toggle**, name it `Recording Enabled`, then add two automations:
 
@@ -132,7 +132,7 @@ automation:
 
 This gives you a simple on/off switch on your dashboard to start and stop recording on demand.
 
-### Option B — Presence detection (record only when away)
+### Option B - Presence detection (record only when away)
 
 Record automatically when everyone leaves home and stop when someone arrives. This assumes you have at least one `person` entity tracked in Home Assistant:
 
@@ -159,7 +159,7 @@ automation:
           addon: rtsp_to_s3
 ```
 
-> **Tip:** You can combine both approaches — use presence detection as the primary trigger and the manual toggle as an override for times when you want to record even while home (e.g. when you go out but leave a family member behind).
+> **Tip:** You can combine both approaches - use presence detection as the primary trigger and the manual toggle as an override for times when you want to record even while home (e.g. when you go out but leave a family member behind).
 
 ## Supported architectures
 
