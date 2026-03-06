@@ -1,7 +1,7 @@
-name: "Tapo C230 Capture"
-description: "Capture a Tapo C230 RTSP stream and upload segments to S3 via AWS IoT credentials"
+name: "RTSP to S3"
+description: "Capture an RTSP camera stream and upload segments to S3 via AWS IoT credentials. Tested with a Tapo C230."
 version: "1.0.0"
-slug: "tapo_c230_capture"
+slug: "rtsp_to_s3"
 init: false
 arch:
   - aarch64

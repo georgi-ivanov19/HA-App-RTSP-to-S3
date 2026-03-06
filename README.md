@@ -1,6 +1,12 @@
-# Tapo C230 Capture — Home Assistant Add-on
+# RTSP to S3 — Home Assistant Add-on
 
-A Home Assistant add-on that continuously captures a Tapo C230 RTSP stream, splits it into fixed-duration MP4 segments, and uploads them to an Amazon S3 bucket using short-lived credentials obtained via AWS IoT Core credential provider.
+A Home Assistant add-on that continuously captures an RTSP camera stream, splits it into fixed-duration MP4 segments, and uploads them to an Amazon S3 bucket using short-lived credentials obtained via AWS IoT Core credential provider.
+
+> **Tested with:** Tapo C230. Other cameras exposing a standard RTSP stream should work but have not been verified.
+
+## Planned improvements
+
+- **Multiple camera support** — currently the add-on supports a single camera per instance. A future version will accept a list of cameras in the configuration, each with its own RTSP URL and S3 prefix, with shared AWS credentials.
 
 ## How it works
 
@@ -41,7 +47,7 @@ The add-on mounts `/ssl` read-only, so the files just need to exist on the host 
 1. In Home Assistant, go to **Settings → Add-ons → Add-on Store**.
 2. Click the menu (⋮) in the top-right and choose **Repositories**.
 3. Add the URL of this repository and click **Add**.
-4. Find **Tapo C230 Capture** in the store and click **Install**.
+4. Find **RTSP to S3** in the store and click **Install**.
 
 ## Configuration
 
@@ -110,7 +116,7 @@ automation:
     action:
       - service: hassio.addon_start
         data:
-          addon: tapo_c230_capture
+          addon: rtsp_to_s3
 
   - alias: "Stop camera recording"
     trigger:
@@ -120,7 +126,7 @@ automation:
     action:
       - service: hassio.addon_stop
         data:
-          addon: tapo_c230_capture
+          addon: rtsp_to_s3
 ```
 
 This gives you a simple on/off switch on your dashboard to start and stop recording on demand.
@@ -139,7 +145,7 @@ automation:
     action:
       - service: hassio.addon_start
         data:
-          addon: tapo_c230_capture
+          addon: rtsp_to_s3
 
   - alias: "Stop recording when someone arrives home"
     trigger:
@@ -149,7 +155,7 @@ automation:
     action:
       - service: hassio.addon_stop
         data:
-          addon: tapo_c230_capture
+          addon: rtsp_to_s3
 ```
 
 > **Tip:** You can combine both approaches — use presence detection as the primary trigger and the manual toggle as an override for times when you want to record even while home (e.g. when you go out but leave a family member behind).

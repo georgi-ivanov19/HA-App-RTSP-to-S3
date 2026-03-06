@@ -12,7 +12,7 @@ ROLE_ALIAS=$(bashio::config 'iot_role_alias')
 THING_NAME=$(bashio::config 'iot_thing_name')
 RESTART_DELAY=$(bashio::config 'restart_delay')
 
-SEGMENT_DIR="/tmp/tapo-c230"
+SEGMENT_DIR="/tmp/rtsp-segments"
 
 mkdir -p "$SEGMENT_DIR"
 
